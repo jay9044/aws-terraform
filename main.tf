@@ -108,7 +108,8 @@ resource "aws_instance" "myapp_webserver" {
 
   vpc_security_group_ids = [aws_security_group.myapp_sg.id]
 
-  //user data
+  user_data = file("./entry_point.sh")
+
   tags = {
     Name = "${var.env_prefix}-${var.region}-myapp_webserver"
   }
