@@ -5,6 +5,7 @@
 *.tfstate.*
 
 *.tfvars
+variables.tf
 
 # Ignore CLI configuration files
 .terraformrc

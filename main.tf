@@ -1,87 +1,87 @@
 resource "aws_vpc" "myapp_vpc" {
-  cidr_block       = "10.0.0.0/16"
+  cidr_block = var.vpc_cidr_block
 
   tags = {
-    Name = "${var.env_prefix - var.region}-vpc" 
+    Name = "${var.env_prefix}-${var.region}-vpc"
   }
 }
 
-resource "aws_subnet" "myapp_subnet-1" {
-  vpc_id            = aws_vpc.myapp-vpc.id
-  cidr_block        = "10.0.1.0/24"
-  availability_zone = ""
+resource "aws_subnet" "myapp_subnet_1" {
+  vpc_id            = aws_vpc.myapp_vpc.id
+  cidr_block        = var.subnet_cidr_block
+  availability_zone = var.availability_zone
   tags = {
-    Name = "${var.env_prefix - var.region}-subnet" 
+    Name = "${var.env_prefix}-${var.region}-subnet"
   }
 }
 
 resource "aws_internet_gateway" "myapp_igw" {
-  vpc_id = aws_vpc.myapp-vpc.id
+  vpc_id = aws_vpc.myapp_vpc.id
 
   tags = {
-    Name = "${var.env_prefix - var.region}-igw" 
+    Name = "${var.env_prefix}-${var.region}-igw"
   }
 }
 
-resource "aws_route_table" "myapp-rtb" {
-  vpc_id = aws_vpc.myapp-vpc.id
+resource "aws_route_table" "myapp_rtb" {
+  vpc_id = aws_vpc.myapp_vpc.id
 
   route {
-    cidr_block = "o.0.0"  //vpc destination is created by defult
-    gateway_id = aws_internet_gateway.example.id
-  }
-
-  route {
-    ipv6_cidr_block        = "::/0"
-    egress_only_gateway_id = aws_egress_only_internet_gateway.example.id
+    cidr_block = var.internet_cidr_block
+    gateway_id = aws_internet_gateway.myapp_igw.id
   }
 
   tags = {
-    Name = "example"
+    Name = "${var.env_prefix}-${var.region}-rtb"
   }
 }
 
-resource "aws_security_group" "allow_tls" {
-  name        = "allow_tls"
-  description = "Allow TLS inbound traffic"
-  vpc_id      = aws_vpc.main.id
+resource "aws_route_table_association" "myapp_rtb_association" {
+  subnet_id      = aws_subnet.myapp_subnet_1.id
+  route_table_id = aws_route_table.myapp_rtb.id
+}
+
+resource "aws_security_group" "myapp_sg" {
+  name        = "myapp_sg"
+  description = "Allow SSH & HTTP traffic"
+  vpc_id      = aws_vpc.myapp_vpc.id
 
   ingress {
-    description      = "TLS from VPC"
-    from_port        = 443
-    to_port          = 443
-    protocol         = "tcp"
-    cidr_blocks      = [aws_vpc.main.cidr_block]
-    ipv6_cidr_blocks = [aws_vpc.main.ipv6_cidr_block]
+    description = "Allow SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.my_ip]
+  }
+
+  ingress {
+    description = "Allow HTTP"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = [var.internet_cidr_block]
   }
 
   egress {
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"
+    cidr_blocks     = [var.internet_cidr_block]
+    prefix_list_ids = []
   }
 
   tags = {
-    Name = "allow_tls"
+    Name = "${var.env_prefix}-${var.region}-myapp_SG"
   }
 }
 
-data "aws_ami" "example" {
-  executable_users = ["self"]
-  most_recent      = true
-  name_regex       = "^myami-\\d{3}"
-  owners           = ["self"]
+data "aws_ami" "latest-amazon-linux-image" {
+  most_recent = true
+  owners      = ["amazon"]
 
   filter {
     name   = "name"
-    values = ["myami-*"]
-  }
-
-  filter {
-    name   = "root-device-type"
-    values = ["ebs"]
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
   }
 
   filter {
@@ -90,15 +90,21 @@ data "aws_ami" "example" {
   }
 }
 
-resource "aws_instance" "this" {
-  ami = data.aws_ami.this.id
-  instance_market_options {
-    spot_options {
-      max_price = 0.0031
-    }
-  }
-  instance_type = "t4g.nano"
+resource "aws_instance" "myapp_webserver" {
+  ami           = data.aws_ami.latest-amazon-linux-image.id
+  instance_type = "t2.micro"
+
+  subnet_id = aws_subnet.myapp_subnet_1.id
+  availability_zone = var.availability_zone
+
+  associate_public_ip_address =  true
+  private_ip = true
+  key_name = ""
+
+  vpc_security_group_ids = [aws_security_group.myapp_sg.id]
+
+  //user data
   tags = {
-    Name = "test-spot"
+    Name = "${var.env_prefix}-${var.region}-myapp_webserver"
   }
 }
