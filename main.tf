@@ -1,34 +1,33 @@
-resource "aws_vpc" "main" {
+resource "aws_vpc" "myapp_vpc" {
   cidr_block       = "10.0.0.0/16"
-  instance_tenancy = "default"
 
   tags = {
-    Name = "main" 
+    Name = "${var.env_prefix - var.region}-vpc" 
   }
 }
 
-resource "aws_subnet" "main" {
-  vpc_id            = aws_vpc.main.id
+resource "aws_subnet" "myapp_subnet-1" {
+  vpc_id            = aws_vpc.myapp-vpc.id
   cidr_block        = "10.0.1.0/24"
-  availability_zone = "et"
+  availability_zone = ""
   tags = {
-    Name = "Main" 
+    Name = "${var.env_prefix - var.region}-subnet" 
   }
 }
 
-resource "aws_internet_gateway" "gw" {
-  vpc_id = aws_vpc.main.id
+resource "aws_internet_gateway" "myapp_igw" {
+  vpc_id = aws_vpc.myapp-vpc.id
 
   tags = {
-    Name = "main"
+    Name = "${var.env_prefix - var.region}-igw" 
   }
 }
 
-resource "aws_route_table" "example" {
-  vpc_id = aws_vpc.example.id
+resource "aws_route_table" "myapp-rtb" {
+  vpc_id = aws_vpc.myapp-vpc.id
 
   route {
-    cidr_block = "10.0.1.0/24"
+    cidr_block = "o.0.0"  //vpc destination is created by defult
     gateway_id = aws_internet_gateway.example.id
   }
 
