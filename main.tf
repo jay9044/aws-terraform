@@ -1,6 +1,7 @@
 resource "aws_vpc" "myapp_vpc" {
   cidr_block = var.vpc_cidr_block
 
+  enable_dns_hostnames = true
   tags = {
     Name = "${var.env_prefix}-${var.region}-vpc"
   }
@@ -90,16 +91,20 @@ data "aws_ami" "latest-amazon-linux-image" {
   }
 }
 
+resource "aws_key_pair" "myapp_ssh-key" {
+  key_name   = "myapp_server-key"
+  public_key = file(var.public_key_path)
+}
+
 resource "aws_instance" "myapp_webserver" {
   ami           = data.aws_ami.latest-amazon-linux-image.id
   instance_type = "t2.micro"
 
-  subnet_id = aws_subnet.myapp_subnet_1.id
+  subnet_id         = aws_subnet.myapp_subnet_1.id
   availability_zone = var.availability_zone
 
-  associate_public_ip_address =  true
-  private_ip = true
-  key_name = ""
+  associate_public_ip_address = true
+  key_name                    = aws_key_pair.myapp_ssh-key.key_name
 
   vpc_security_group_ids = [aws_security_group.myapp_sg.id]
 
